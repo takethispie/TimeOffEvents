@@ -64,6 +64,7 @@ let creationTests =
 
       Given [ ]
       |> ConnectedAs (Employee 1)
+      //teste que la request n'overlap pas (utilise overlapsWithAnyRequest)
       |> When (RequestTimeOff request)
       |> Then (Ok [RequestCreated request]) "The request should have been created"
     }
@@ -83,5 +84,37 @@ let validationTests =
       |> ConnectedAs Manager
       |> When (ValidateRequest (1, Guid.Empty))
       |> Then (Ok [RequestValidated request]) "The request should have been validated"
+    }
+  ]
+
+[<Tests>]
+let DeletionTests = 
+  testList "DeletionTests" [
+    test "a request is deleted" {
+      let request = {
+        UserId = 1
+        RequestId = Guid.Empty
+        Start = { Date = DateTime(2018, 12, 28); HalfDay = AM }
+        End = { Date = DateTime(2018, 12, 28); HalfDay = PM } 
+      }
+
+      Given [ RequestValidated request]
+      |> ConnectedAs (Employee 1)
+      |> When ( DeleteRequest (1, Guid.Empty))
+      |> Then (Ok [RequestDeleted request]) "the request should have been deleted"
+    }
+
+    test "a request is in the past thus not deleted" {
+      let request = {
+        UserId = 1
+        RequestId = Guid.Empty
+        Start = { Date = DateTime(2018, 12, 2); HalfDay = AM }
+        End = { Date = DateTime(2018, 12, 2); HalfDay = PM } 
+      }
+
+      Given [ RequestValidated request]
+      |> ConnectedAs (Employee 1)
+      |> When ( DeleteRequest (1, Guid.Empty))
+      |> Then (Error "Can't delete passed Request") "the request should throw an error"
     }
   ]
