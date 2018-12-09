@@ -18,6 +18,7 @@ let Then expected message (events: RequestEvent list, user: User, command: Comma
     Expect.equal result expected message
 
 open System
+open TimeOff
 
 [<Tests>]
 let overlapTests = 
@@ -60,13 +61,50 @@ let creationTests =
         UserId = 1
         RequestId = Guid.Empty
         Start = { Date = DateTime(2018, 12, 28); HalfDay = AM }
-        End = { Date = DateTime(2018, 12, 28); HalfDay = PM } }
+        End = { Date = DateTime(2018, 12, 28); HalfDay = PM } 
+      }
 
       Given [ ]
       |> ConnectedAs (Employee 1)
       //teste que la request n'overlap pas (utilise overlapsWithAnyRequest)
       |> When (RequestTimeOff request)
       |> Then (Ok [RequestCreated request]) "The request should have been created"
+    }
+
+    test "test " {
+      let request1 = {
+        UserId = 1
+        RequestId = Guid.Empty
+        Start = { Date = DateTime(2018, 12, 28); HalfDay = AM }
+        End = { Date = DateTime(2018, 12, 28); HalfDay = PM } 
+      }
+
+      let request3 = {
+        UserId = 1
+        RequestId = Guid.Empty
+        Start = { Date = DateTime(2018, 12, 29); HalfDay = AM }
+        End = { Date = DateTime(2018, 12, 29); HalfDay = PM } 
+      }
+
+      let request2 = {
+        UserId = 1
+        RequestId = Guid.Empty
+        Start = { Date = DateTime(2018, 3, 28); HalfDay = AM }
+        End = { Date = DateTime(2018, 3, 28); HalfDay = PM } 
+      }
+
+      let request4 = {
+        UserId = 1
+        RequestId = Guid.Empty
+        Start = { Date = DateTime(2018, 11, 28); HalfDay = AM }
+        End = { Date = DateTime(2018, 11, 28); HalfDay = PM } 
+      }
+
+      let other = Seq.ofList [request1; request2; request3]
+      //request is used in both in the list and the request 
+      //the function is tested against
+      let res = Logic.overlapsWithAnyRequest other request1
+      Expect.isTrue(res) "two same request should overlap with each other"
     }
   ]
 

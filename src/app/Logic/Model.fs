@@ -62,14 +62,14 @@ module Logic =
         userRequests.Add (event.Request.RequestId, newRequestState)
 
     let overlapsWith (request1: TimeOffRequest) (request2: TimeOffRequest) =
-        if (compare request1.End.Date request2.Start.Date < 0 || compare request1.Start.Date request2.End.Date > 0 ) then false
+        if ((request1.End.Date < request2.Start.Date) || (request1.Start.Date > request2.End.Date) ) then false
         else not (request1.Start.HalfDay <> request2.Start.HalfDay && request1.End.HalfDay <> request1.End.HalfDay)
         //TODO: check haldfay within the compare in the if clause 
 
 
     let overlapsWithAnyRequest (otherRequests: TimeOffRequest seq) request =
-        
-        false //TODO: write this function using overlapsWith
+        let boolMap = Seq.map (fun otherReq -> overlapsWith otherReq request) otherRequests
+        Seq.exists (fun b -> b = true) boolMap
 
     let createRequest activeUserRequests (currentDate: DateTime)  request =
         if request |> overlapsWithAnyRequest activeUserRequests then
@@ -92,6 +92,7 @@ module Logic =
             if request.End.Date < currentDate then Error "Can't delete passed Request"
             else Ok [RequestDeleted request]
         | _ -> Error "Request cannot be deleted"
+
 
     let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
         let relatedUserId = command.UserId
