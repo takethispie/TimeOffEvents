@@ -127,3 +127,17 @@ module Logic =
             | DeleteRequest (_, requestId) -> 
                 let requestStat = defaultArg (userRequests.TryFind requestId) NotCreated
                 DeleteRequest requestStat DateTime.Today
+
+
+    let fetch (userRequests: UserRequestsState) (user: User) (query: Query) =
+        let relatedUserId = query.UserId
+        match query with
+        |GetAllActive userId-> 
+            let result = 
+                userRequests
+                    |> Map.toSeq
+                    |> Seq.map (fun (_, state) -> state)
+                    |> Seq.where (fun state -> state.IsActive && state.Request.UserId = userId)
+                    |> Seq.map (fun state -> state.Request)
+            result
+

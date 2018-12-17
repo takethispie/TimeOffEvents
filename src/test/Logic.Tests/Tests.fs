@@ -17,7 +17,19 @@ let Then expected message (events: RequestEvent list, user: User, command: Comma
     let result = Logic.decide userRequestsState user command
     Expect.equal result expected message
 
-open System
+
+let whenQuery (query: Query) (events: RequestEvent list, user: User) = events, user, query
+let thenQuery expected message  (events: RequestEvent list, user: User, query: Query) =
+  let evolveGlobalState (userStates: Map<UserId, Logic.UserRequestsState>) (event: RequestEvent) =
+        let userState = defaultArg (Map.tryFind event.Request.UserId userStates) Map.empty
+        let newUserState = Logic.evolveUserRequests userState event
+        userStates.Add (event.Request.UserId, newUserState)
+
+  let globalState = Seq.fold evolveGlobalState Map.empty events
+  let userRequestsState = defaultArg (Map.tryFind query.UserId globalState) Map.empty
+  let result = Logic.fetch userRequestsState user query
+  Expect.equal result expected message
+
 open TimeOff
 
 [<Tests>]
@@ -154,5 +166,32 @@ let DeletionTests =
       |> ConnectedAs (Employee 1)
       |> When ( DeleteRequest (1, Guid.Empty))
       |> Then (Error "Can't delete passed Request") "the request should throw an error"
+    }
+  ]
+
+[<Tests>]
+let QueriesTests = 
+  testList "queries test" [
+    test "get all active request" {
+      let request3 = {
+        UserId = 1
+        RequestId = Guid.Empty
+        Start = { Date = DateTime(2018, 12, 29); HalfDay = AM }
+        End = { Date = DateTime(2018, 12, 29); HalfDay = PM } 
+      }
+
+      let request2 = {
+        UserId = 1
+        RequestId = Guid.Empty
+        Start = { Date = DateTime(2018, 3, 28); HalfDay = AM }
+        End = { Date = DateTime(2018, 3, 28); HalfDay = PM } 
+      }
+
+      let other = Seq.ofList [request3::request2]
+
+      Given[RequestCreated request2; RequestCreated request3;]
+      |> ConnectedAs (Employee 1)
+      |> whenQuery ( GetAllActive (1))
+      |> thenQuery (other) "lol"
     }
   ]

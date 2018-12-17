@@ -87,15 +87,8 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
         let userId = query.UserId
         let eventStream = eventStore.GetStream(userId)
         let state = eventStream.ReadAll()  |> Seq.fold Logic.evolveUserRequests Map.empty
-        match query with 
-            | GetAllActive userId-> 
-                let result = 
-                    state
-                        |> Map.toSeq
-                        |> Seq.map (fun (_, state) -> state)
-                        |> Seq.where (fun state -> state.IsActive && state.Request.UserId = userId)
-                        |> Seq.map (fun state -> state.Request)
-                Ok [result]
+        let result = Logic.fetch state user query
+        result
         
     choose [
         subRoute "/api"
