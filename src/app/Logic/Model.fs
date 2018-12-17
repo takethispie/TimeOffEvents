@@ -7,11 +7,18 @@ type Command =
     | RequestTimeOff of TimeOffRequest
     | ValidateRequest of UserId * Guid 
     | DeleteRequest of UserId * Guid
+    | RequestActiveTimeOffList of TimeOffRequest
     member this.UserId =
         match this with
         | RequestTimeOff request -> request.UserId
         | ValidateRequest (userId, _) -> userId
         | DeleteRequest (userId, _) -> userId
+
+type Query =
+    | GetAllActive of UserId
+    member this.UserId =
+        match this with
+        | GetAllActive userId -> userId
 
 // And our events
 type RequestEvent =
@@ -108,7 +115,6 @@ module Logic =
                     |> Seq.map (fun (_, state) -> state)
                     |> Seq.where (fun state -> state.IsActive)
                     |> Seq.map (fun state -> state.Request)
-
                 createRequest activeUserRequests DateTime.Today request
 
             | ValidateRequest (_, requestId) ->
