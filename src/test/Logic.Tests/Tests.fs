@@ -173,21 +173,21 @@ let DeletionTests =
 let QueriesTests = 
   testList "queries test" [
     test "get all active request" {
-      let request3 = {
+      let request3: TimeOffRequest = {
         UserId = 1
         RequestId = Guid.Empty
         Start = { Date = DateTime(2018, 12, 29); HalfDay = AM }
         End = { Date = DateTime(2018, 12, 29); HalfDay = PM } 
       }
 
-      let request2 = {
+      let request2: TimeOffRequest = {
         UserId = 1
         RequestId = Guid.Empty
         Start = { Date = DateTime(2018, 3, 28); HalfDay = AM }
         End = { Date = DateTime(2018, 3, 28); HalfDay = PM } 
       }
 
-      let other = Seq.ofList [request3::request2]
+      let other = List.toSeq [request3; request2;]
 
       Given[RequestCreated request2; RequestCreated request3;]
       |> ConnectedAs (Employee 1)
