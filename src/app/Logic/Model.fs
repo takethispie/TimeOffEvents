@@ -8,11 +8,13 @@ type Command =
     | ValidateRequest of UserId * Guid 
     | DeleteRequest of UserId * Guid
     | RequestActiveTimeOffList of TimeOffRequest
+    | UpdateRequest of TimeOffRequest * Guid
     member this.UserId =
         match this with
         | RequestTimeOff request -> request.UserId
         | ValidateRequest (userId, _) -> userId
         | DeleteRequest (userId, _) -> userId
+        | UpdateRequest (newRequest,oldRequestId) -> newRequest.UserId
 
 type Query =
     | GetAllActive of UserId
@@ -24,12 +26,14 @@ type Query =
 type RequestEvent =
     | RequestCreated of TimeOffRequest
     | RequestValidated of TimeOffRequest 
-    | RequestDeleted of TimeOffRequest with
+    | RequestDeleted of TimeOffRequest 
+    | RequestUpdated of TimeOffRequest with
     member this.Request =
         match this with
         | RequestCreated request -> request
         | RequestValidated request -> request
         | RequestDeleted request -> request
+        | RequestUpdated request ->request
 
 // We then define the state of the system,
 // and our 2 main functions `decide` and `evolve`
@@ -49,7 +53,7 @@ module Logic =
         member this.IsActive =
             match this with
             | NotCreated -> false
-            | PendingValidation _
+            | PendingValidation _ ->true
             | Validated _ -> true
             | Deleted _ -> false
             
@@ -100,6 +104,28 @@ module Logic =
             else Ok [RequestDeleted request]
         | _ -> Error "Request cannot be deleted"
 
+    let UpdateRequest userRequests newRequest  oldRequestId =
+        try
+            let oldRequest = userRequests//seul les requete pending ou validé peuvent etre modifié. une requete validé, un fois modifiée, repasse en pending
+                            |> Map.toSeq
+                            |> Seq.map (fun (_, state) -> state)//retourne les RequestState
+                            |> Seq.where (fun (state:RequestState) -> state.IsActive)//ne prend que ceux qui sont actif
+                            |> Seq.where (fun (state)->state.Request.Start.Date>DateTime.Now)//et dont la date de début et posterieur à aujourd'hui
+                            |> Seq.map (fun state -> state.Request) //extrait les requete des RequestState                       
+                            |> Seq.where(fun request -> request.RequestId.Equals(oldRequestId) )//ne prend que celle qui as le bon ID
+                            |> Seq.exactlyOne //transforme la sequence unique ne requete
+ 
+            //on creer la requete à partir des info de l'ancienne et de la nouvelle
+            let result=PendingValidation{
+                UserId=oldRequest.UserId
+                RequestId=oldRequest.RequestId
+                Start=newRequest.Start
+                End=newRequest.End
+            }
+            
+            Ok[RequestUpdated result.Request]
+        with 
+            | :? _-> Error "Time off in the past or already cancelled"
 
     let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
         let relatedUserId = command.UserId
@@ -127,6 +153,11 @@ module Logic =
             | DeleteRequest (_, requestId) -> 
                 let requestStat = defaultArg (userRequests.TryFind requestId) NotCreated
                 DeleteRequest requestStat DateTime.Today
+
+            | UpdateRequest (newRequest,oldRequestId) ->
+                
+                UpdateRequest userRequests  newRequest oldRequestId
+              
 
 
     let fetch (userRequests: UserRequestsState) (user: User) (query: Query) =
