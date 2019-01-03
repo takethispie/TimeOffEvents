@@ -6,13 +6,13 @@ open System
 type Command =
     | RequestTimeOff of TimeOffRequest
     | ValidateRequest of UserId * Guid 
-    | DeleteRequest of UserId * Guid
+    | CancelRequest of UserId * Guid
     | RefuseRequest of UserId * Guid
     member this.UserId =
         match this with
         | RequestTimeOff request -> request.UserId
         | ValidateRequest (userId, _) -> userId
-        | DeleteRequest (userId, _) -> userId
+        | CancelRequest (userId, _) -> userId
         | RefuseRequest (userId, _) -> userId
 
 type Query =
@@ -26,12 +26,12 @@ type RequestEvent =
     | RequestCreated of TimeOffRequest
     | RequestValidated of TimeOffRequest 
     | RequestRefused of TimeOffRequest
-    | RequestDeleted of TimeOffRequest with
+    | RequestCanceled of TimeOffRequest with
     member this.Request =
         match this with
         | RequestCreated request -> request
         | RequestValidated request -> request
-        | RequestDeleted request -> request
+        | RequestCanceled request -> request
         | RequestRefused request -> request
 
 // We then define the state of the system,
@@ -43,21 +43,21 @@ module Logic =
         | PendingValidation of TimeOffRequest
         | Validated of TimeOffRequest 
         | Refused of TimeOffRequest
-        | Deleted of TimeOffRequest with
+        | Canceled of TimeOffRequest with
         member this.Request =
             match this with
             | NotCreated -> invalidOp "Not created"
             | PendingValidation request
             | Validated request -> request
             | Refused request -> request
-            | Deleted request -> request
+            | Canceled request -> request
         member this.IsActive =
             match this with
             | NotCreated -> false
             | PendingValidation _
             | Validated _ -> true
             | Refused _ -> false
-            | Deleted _ -> false
+            | Canceled _ -> false
             
             
 
@@ -67,7 +67,7 @@ module Logic =
         match event with
         | RequestCreated request -> PendingValidation request
         | RequestValidated request -> Validated request
-        | RequestDeleted request -> Deleted request
+        | RequestCanceled request -> Canceled request
         | RequestRefused request -> Refused request
 
     let evolveUserRequests (userRequests: UserRequestsState) (event: RequestEvent) =
@@ -106,11 +106,11 @@ module Logic =
     let CancelRequest requestState (currentDate: DateTime) =
         match requestState with 
         | Validated request -> 
-            if request.End.Date < currentDate then Error "Can't delete passed Request"
-            else Ok [RequestDeleted request]
+            if request.End.Date < currentDate.AddDays(1.) then Error "Can't delete passed Request"
+            else Ok [RequestCanceled request]
         | _ -> Error "Request cannot be deleted"
 
-    let RefuseRequest requestState userId =
+    let RefuseRequest requestState =
         match requestState with
         | PendingValidation request ->
             Ok [RequestRefused request]
@@ -139,7 +139,7 @@ module Logic =
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
 
-            | DeleteRequest (_, requestId) -> 
+            | CancelRequest (_, requestId) -> 
                 let requestStat = defaultArg (userRequests.TryFind requestId) NotCreated
                 CancelRequest requestStat DateTime.Today
 
@@ -148,7 +148,7 @@ module Logic =
                     Error "Unauthorized"
                 else 
                     let requestStat = defaultArg (userRequests.TryFind requestId) NotCreated
-                    RefuseRequest requestStat userId
+                    RefuseRequest requestStat
 
 
 
