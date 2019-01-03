@@ -7,12 +7,13 @@ type Command =
     | RequestTimeOff of TimeOffRequest
     | ValidateRequest of UserId * Guid 
     | DeleteRequest of UserId * Guid
-    | RequestActiveTimeOffList of TimeOffRequest
+    | RefuseRequest of UserId * Guid
     member this.UserId =
         match this with
         | RequestTimeOff request -> request.UserId
         | ValidateRequest (userId, _) -> userId
         | DeleteRequest (userId, _) -> userId
+        | RefuseRequest (userId, _) -> userId
 
 type Query =
     | GetAllActive of UserId
@@ -24,12 +25,14 @@ type Query =
 type RequestEvent =
     | RequestCreated of TimeOffRequest
     | RequestValidated of TimeOffRequest 
+    | RequestRefused of TimeOffRequest
     | RequestDeleted of TimeOffRequest with
     member this.Request =
         match this with
         | RequestCreated request -> request
         | RequestValidated request -> request
         | RequestDeleted request -> request
+        | RequestRefused request -> request
 
 // We then define the state of the system,
 // and our 2 main functions `decide` and `evolve`
@@ -39,18 +42,21 @@ module Logic =
         | NotCreated
         | PendingValidation of TimeOffRequest
         | Validated of TimeOffRequest 
+        | Refused of TimeOffRequest
         | Deleted of TimeOffRequest with
         member this.Request =
             match this with
             | NotCreated -> invalidOp "Not created"
             | PendingValidation request
             | Validated request -> request
+            | Refused request -> request
             | Deleted request -> request
         member this.IsActive =
             match this with
             | NotCreated -> false
             | PendingValidation _
             | Validated _ -> true
+            | Refused _ -> false
             | Deleted _ -> false
             
             
@@ -62,6 +68,7 @@ module Logic =
         | RequestCreated request -> PendingValidation request
         | RequestValidated request -> Validated request
         | RequestDeleted request -> Deleted request
+        | RequestRefused request -> Refused request
 
     let evolveUserRequests (userRequests: UserRequestsState) (event: RequestEvent) =
         let requestState = defaultArg (Map.tryFind event.Request.RequestId userRequests) NotCreated
@@ -76,7 +83,7 @@ module Logic =
 
     let overlapsWithAnyRequest (otherRequests: TimeOffRequest seq) request =
         let boolMap = Seq.map (fun otherReq -> overlapsWith otherReq request) otherRequests
-        Seq.exists (fun b -> b = true) boolMap
+        Seq.exists (id) boolMap
 
     let createRequest activeUserRequests (currentDate: DateTime)  request =
         if request |> overlapsWithAnyRequest activeUserRequests then
@@ -84,7 +91,10 @@ module Logic =
         elif request.Start.Date <= currentDate then
             Error "The request starts in the past"
         else
-            Ok [RequestCreated request]
+            if request.Start.Date < currentDate then
+                Error "Request start date is in the past"
+            else
+                Ok [RequestCreated request]
 
     let validateRequest requestState =
         match requestState with
@@ -93,13 +103,18 @@ module Logic =
         | _ ->
             Error "Request cannot be validated"
 
-    let DeleteRequest requestState (currentDate: DateTime) =
+    let CancelRequest requestState (currentDate: DateTime) =
         match requestState with 
         | Validated request -> 
             if request.End.Date < currentDate then Error "Can't delete passed Request"
             else Ok [RequestDeleted request]
         | _ -> Error "Request cannot be deleted"
 
+    let RefuseRequest requestState userId =
+        match requestState with
+        | PendingValidation request ->
+            Ok [RequestRefused request]
+        | _ -> Error "Cannot refuse request"
 
     let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
         let relatedUserId = command.UserId
@@ -126,11 +141,18 @@ module Logic =
 
             | DeleteRequest (_, requestId) -> 
                 let requestStat = defaultArg (userRequests.TryFind requestId) NotCreated
-                DeleteRequest requestStat DateTime.Today
+                CancelRequest requestStat DateTime.Today
+
+            | RefuseRequest(userId, requestId) -> 
+                if user <> Manager then 
+                    Error "Unauthorized"
+                else 
+                    let requestStat = defaultArg (userRequests.TryFind requestId) NotCreated
+                    RefuseRequest requestStat userId
+
 
 
     let fetch (userRequests: UserRequestsState) (user: User) (query: Query) =
-        let relatedUserId = query.UserId
         match query with
         |GetAllActive userId-> 
             let result = 
