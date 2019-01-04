@@ -1,6 +1,7 @@
 ﻿namespace TimeOff
 
 open System
+open System
 
 // Then our commands
 type Command =
@@ -26,11 +27,13 @@ type RequestEvent =
     | RequestCreated of TimeOffRequest
     | RequestValidated of TimeOffRequest 
     | RequestRefused of TimeOffRequest
+    | RequestPendingCancellation of TimeOffRequest
     | RequestCanceled of TimeOffRequest with
     member this.Request =
         match this with
         | RequestCreated request -> request
         | RequestValidated request -> request
+        | RequestPendingCancellation request -> request
         | RequestCanceled request -> request
         | RequestRefused request -> request
 
@@ -43,6 +46,8 @@ module Logic =
         | PendingValidation of TimeOffRequest
         | Validated of TimeOffRequest 
         | Refused of TimeOffRequest
+        | PendingCancellation of TimeOffRequest
+        | CancellationRefused of TimeOffRequest
         | Canceled of TimeOffRequest with
         member this.Request =
             match this with
@@ -51,6 +56,8 @@ module Logic =
             | Validated request -> request
             | Refused request -> request
             | Canceled request -> request
+            | PendingCancellation request -> request
+            | CancellationRefused request -> request
         member this.IsActive =
             match this with
             | NotCreated -> false
@@ -58,6 +65,8 @@ module Logic =
             | Validated _ -> true
             | Refused _ -> false
             | Canceled _ -> false
+            | PendingCancellation _ -> true
+            | CancellationRefused _ -> true
             
             
 
@@ -69,6 +78,7 @@ module Logic =
         | RequestValidated request -> Validated request
         | RequestCanceled request -> Canceled request
         | RequestRefused request -> Refused request
+        | RequestPendingCancellation request -> PendingCancellation request
 
     let evolveUserRequests (userRequests: UserRequestsState) (event: RequestEvent) =
         let requestState = defaultArg (Map.tryFind event.Request.RequestId userRequests) NotCreated
@@ -103,16 +113,29 @@ module Logic =
         | _ ->
             Error "Request cannot be validated"
 
-    let CancelRequest requestState (currentDate: DateTime) =
-        match requestState with 
-        | Validated request -> 
-            if request.End.Date < currentDate.AddDays(1.) then Error "Can't delete passed Request"
-            else Ok [RequestCanceled request]
-        | _ -> Error "Request cannot be deleted"
+    let CancelRequest requestState (currentDate: DateTime) userId =
+        if userId <> Manager then 
+            match requestState with 
+            | Validated request -> 
+                if request.End.Date < currentDate.AddDays(1.) then 
+                    Ok [RequestPendingCancellation request]
+                else Ok [RequestCanceled request]
+            | PendingValidation request -> 
+                if request.End.Date < currentDate.AddDays(1.) then 
+                    Ok [RequestPendingCancellation request]
+                else Ok [RequestCanceled request]
+            | _ -> Error "Request cannot be deleted"
+        else 
+            Error "unfinished block"
+            
 
     let RefuseRequest requestState =
         match requestState with
         | PendingValidation request ->
+            Ok [RequestRefused request]
+        | Validated request -> 
+            Ok [RequestRefused request]
+        | PendingCancellation request -> 
             Ok [RequestRefused request]
         | _ -> Error "Cannot refuse request"
 
@@ -141,9 +164,9 @@ module Logic =
 
             | CancelRequest (_, requestId) -> 
                 let requestStat = defaultArg (userRequests.TryFind requestId) NotCreated
-                CancelRequest requestStat DateTime.Today
+                CancelRequest requestStat DateTime.Today user
 
-            | RefuseRequest(userId, requestId) -> 
+            | RefuseRequest(_, requestId) -> 
                 if user <> Manager then 
                     Error "Unauthorized"
                 else 

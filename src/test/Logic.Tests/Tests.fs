@@ -150,8 +150,8 @@ let DeletionTests =
 
       Given [ RequestValidated request]
       |> ConnectedAs (Employee 1)
-      |> When ( DeleteRequest (1, Guid.Empty))
-      |> Then (Ok [RequestDeleted request]) "the request should have been deleted"
+      |> When ( CancelRequest (1, Guid.Empty))
+      |> Then (Ok [RequestCanceled request]) "the request should have been deleted"
     }
 
     test "a request is in the past thus not deleted" {
@@ -164,7 +164,7 @@ let DeletionTests =
 
       Given [ RequestValidated request]
       |> ConnectedAs (Employee 1)
-      |> When ( DeleteRequest (1, Guid.Empty))
+      |> When ( CancelRequest (1, Guid.Empty))
       |> Then (Error "Can't delete passed Request") "the request should throw an error"
     }
   ]
