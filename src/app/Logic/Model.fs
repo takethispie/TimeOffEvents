@@ -16,11 +16,13 @@ type Command =
         | CancelRequest (userId, _) -> userId
         | RefuseRequest (userId, _) -> userId
 
+
 type Query =
     | GetAllActive of UserId
     member this.UserId =
         match this with
         | GetAllActive userId -> userId
+
 
 // And our events
 type RequestEvent =
@@ -36,6 +38,7 @@ type RequestEvent =
         | RequestPendingCancellation request -> request
         | RequestCanceled request -> request
         | RequestRefused request -> request
+
 
 // We then define the state of the system,
 // and our 2 main functions `decide` and `evolve`
@@ -68,7 +71,6 @@ module Logic =
             | PendingCancellation _ -> true
             | CancellationRefused _ -> true
             
-            
 
     type UserRequestsState = Map<Guid, RequestState>
 
@@ -80,10 +82,12 @@ module Logic =
         | RequestRefused request -> Refused request
         | RequestPendingCancellation request -> PendingCancellation request
 
+
     let evolveUserRequests (userRequests: UserRequestsState) (event: RequestEvent) =
         let requestState = defaultArg (Map.tryFind event.Request.RequestId userRequests) NotCreated
         let newRequestState = evolveRequest requestState event
         userRequests.Add (event.Request.RequestId, newRequestState)
+
 
     let overlapsWith (request1: TimeOffRequest) (request2: TimeOffRequest) =
         if ((request1.End.Date < request2.Start.Date) || (request1.Start.Date > request2.End.Date) ) then false
@@ -94,6 +98,7 @@ module Logic =
     let overlapsWithAnyRequest (otherRequests: TimeOffRequest seq) request =
         let boolMap = Seq.map (fun otherReq -> overlapsWith otherReq request) otherRequests
         Seq.exists (id) boolMap
+
 
     let createRequest activeUserRequests (currentDate: DateTime)  request =
         if request |> overlapsWithAnyRequest activeUserRequests then
@@ -106,12 +111,14 @@ module Logic =
             else
                 Ok [RequestCreated request]
 
+
     let validateRequest requestState =
         match requestState with
         | PendingValidation request ->
             Ok [RequestValidated request]
         | _ ->
             Error "Request cannot be validated"
+
 
     let CancelRequest requestState (currentDate: DateTime) userId =
         if userId <> Manager then 
@@ -126,8 +133,17 @@ module Logic =
                 else Ok [RequestCanceled request]
             | _ -> Error "Request cannot be deleted"
         else 
-            Error "unfinished block"
-            
+            match requestState with
+            | Validated request -> 
+               Ok [RequestCanceled request]
+            | PendingValidation request -> 
+               Ok [RequestCanceled request]
+            | PendingCancellation request -> 
+               Ok [RequestCanceled request]
+            | CancellationRefused request -> 
+               Ok [RequestCanceled request]
+            | _ -> Error "Request cannot be canceled"   
+                     
 
     let RefuseRequest requestState =
         match requestState with
@@ -138,6 +154,7 @@ module Logic =
         | PendingCancellation request -> 
             Ok [RequestRefused request]
         | _ -> Error "Cannot refuse request"
+
 
     let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
         let relatedUserId = command.UserId
@@ -172,7 +189,6 @@ module Logic =
                 else 
                     let requestStat = defaultArg (userRequests.TryFind requestId) NotCreated
                     RefuseRequest requestStat
-
 
 
     let fetch (userRequests: UserRequestsState) (user: User) (query: Query) =
