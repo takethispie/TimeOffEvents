@@ -132,12 +132,12 @@ module Logic =
             match requestState with 
             | Validated request -> 
                 if request.Start.Date > currentDate.AddDays(1.) then 
-                    Ok [RequestPendingCancellation request]
-                else Error "Can't delete passed Request"
+                    Ok [RequestCanceled request]
+                else Ok [RequestPendingCancellation request]
             | PendingValidation request -> 
                 if request.Start.Date > currentDate.AddDays(1.) then 
-                    Ok [RequestPendingCancellation request]
-                else Error "Can't delete passed Request"
+                    Ok [RequestCanceled request]
+                else Ok [RequestPendingCancellation request]
             | _ -> Error "Request cannot be deleted"
         else 
             match requestState with
