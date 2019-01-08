@@ -37,7 +37,7 @@ let overlapTests =
   testList "Overlap tests" [
     test "A request overlaps with itself" {
       let request = {
-        UserId = 1
+        UserId = "jdoe"
         RequestId = Guid.NewGuid()
         Start = { Date = DateTime(2019, 10, 1); HalfDay = AM }
         End = { Date = DateTime(2019, 10, 1); HalfDay = PM }
@@ -48,14 +48,14 @@ let overlapTests =
 
     test "Requests on 2 distinct days don't overlap" {
       let request1 = {
-        UserId = 1
+        UserId = "jdoe"
         RequestId = Guid.NewGuid()
         Start = { Date = DateTime(2019, 10, 1); HalfDay = AM }
         End = { Date = DateTime(2019, 10, 1); HalfDay = PM }
       }
 
       let request2 = {
-        UserId = 1
+        UserId = "jdoe"
         RequestId = Guid.NewGuid()
         Start = { Date = DateTime(2019, 10, 2); HalfDay = AM }
         End = { Date = DateTime(2019, 10, 2); HalfDay = PM }
@@ -70,7 +70,7 @@ let creationTests =
   testList "Creation tests" [
     test "A request is created" {
       let request = {
-        UserId = 1
+        UserId = "jdoe"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 31); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 31); HalfDay = PM } 
@@ -125,14 +125,14 @@ let validationTests =
   testList "Validation tests" [
     test "A request is validated" {
       let request = {
-        UserId = 1
+        UserId = "jdoe"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 28); HalfDay = PM } }
 
       Given [ RequestCreated request ]
       |> ConnectedAs Manager
-      |> When (ValidateRequest (1, Guid.Empty))
+      |> When (ValidateRequest ("jdoe", Guid.Empty))
       |> Then (Ok [RequestValidated request]) "The request should have been validated"
     }
   ]
