@@ -149,7 +149,7 @@ let DeletionTests =
       }
 
       Given [ RequestValidated request]
-      |> ConnectedAs (Employee "1")
+      |> ConnectedAs Manager
       |> When ( CancelRequest ("1", Guid.Empty))
       |> Then (Ok [RequestPendingCancellation request]) "the request should have been deleted"
     }
