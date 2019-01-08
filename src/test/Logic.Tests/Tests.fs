@@ -77,7 +77,7 @@ let creationTests =
       }
 
       Given [ ]
-      |> ConnectedAs (Employee 1)
+      |> ConnectedAs (Employee "jdoe")
       //teste que la request n'overlap pas (utilise overlapsWithAnyRequest)
       |> When (RequestTimeOff request)
       |> Then (Ok [RequestCreated request]) "The request should have been created"
@@ -85,28 +85,28 @@ let creationTests =
 
     test "test " {
       let request1 = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 28); HalfDay = PM } 
       }
 
       let request3 = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 29); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 29); HalfDay = PM } 
       }
 
       let request2 = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 3, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 3, 28); HalfDay = PM } 
       }
 
       let request4 = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 11, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 11, 28); HalfDay = PM } 
@@ -142,29 +142,29 @@ let DeletionTests =
   testList "DeletionTests" [
     test "a request is deleted" {
       let request = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 28); HalfDay = PM } 
       }
 
       Given [ RequestValidated request]
-      |> ConnectedAs (Employee 1)
-      |> When ( CancelRequest (1, Guid.Empty))
-      |> Then (Ok [RequestCanceled request]) "the request should have been deleted"
+      |> ConnectedAs (Employee "1")
+      |> When ( CancelRequest ("1", Guid.Empty))
+      |> Then (Ok [RequestPendingCancellation request]) "the request should have been deleted"
     }
 
     test "a request is in the past thus not deleted" {
       let request = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2018, 12, 2); HalfDay = AM }
         End = { Date = DateTime(2018, 12, 2); HalfDay = PM } 
       }
 
       Given [ RequestValidated request]
-      |> ConnectedAs (Employee 1)
-      |> When ( CancelRequest (1, Guid.Empty))
+      |> ConnectedAs (Employee "1")
+      |> When ( CancelRequest ("1", Guid.Empty))
       |> Then (Error "Can't delete passed Request") "the request should throw an error"
     }
   ]
@@ -173,13 +173,13 @@ let UpdateTest =
   testList "UpdateTests" [
     test "a request is updated" {
       let request = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 28); HalfDay = PM } 
       }
       let newRequest = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 28); HalfDay = PM } 
@@ -187,39 +187,39 @@ let UpdateTest =
 
 
       Given [ RequestValidated request]
-      |> ConnectedAs (Employee 1)
+      |> ConnectedAs (Employee "1")
       |> When ( UpdateRequest (request,newRequest.RequestId))
       |> Then (Ok [RequestUpdated newRequest]) "the request should have been updated"
     }
     test "a request refuses to update due to it beeing canceled" {
       let request = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 28); HalfDay = PM } 
       }
       let newRequest = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 28); HalfDay = PM } 
       }
 
 
-      Given [ RequestDeleted request]
-      |> ConnectedAs (Employee 1)
+      Given [ RequestCanceled request]
+      |> ConnectedAs (Employee "1")
       |> When ( UpdateRequest (request,newRequest.RequestId))
       |> Then (Error "Time off in the past or already cancelled") "the request should not have been updated"
     }
     test "a request refuses to update due to it beeing in the past" {
       let request = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2018, 12, 28); HalfDay = AM }
         End = { Date = DateTime(2018, 12, 28); HalfDay = PM } 
       }
       let newRequest = {
-        UserId = 1
+        UserId = "1"
         RequestId = Guid.Empty
         Start = { Date = DateTime(2019, 12, 28); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 28); HalfDay = PM } 
@@ -227,7 +227,7 @@ let UpdateTest =
 
 
       Given [ RequestValidated request]
-      |> ConnectedAs (Employee 1)
+      |> ConnectedAs (Employee "1")
       |> When ( UpdateRequest (request,newRequest.RequestId))
       |> Then (Error "Time off in the past or already cancelled") "the request should not have been updated"
     }

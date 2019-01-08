@@ -7,7 +7,6 @@ open System
 type Command =
     | RequestTimeOff of TimeOffRequest
     | ValidateRequest of UserId * Guid 
-    | DeleteRequest of UserId * Guid
     | RequestActiveTimeOffList of TimeOffRequest
     | UpdateRequest of TimeOffRequest * Guid
     | CancelRequest of UserId * Guid
@@ -16,7 +15,6 @@ type Command =
         match this with
         | RequestTimeOff request -> request.UserId
         | ValidateRequest (userId, _) -> userId
-        | DeleteRequest (userId, _) -> userId
         | UpdateRequest (newRequest,oldRequestId) -> newRequest.UserId
         | CancelRequest (userId, _) -> userId
         | RefuseRequest (userId, _) -> userId
@@ -33,8 +31,7 @@ type Query =
 type RequestEvent =
     | RequestCreated of TimeOffRequest
     | RequestValidated of TimeOffRequest 
-    | RequestDeleted of TimeOffRequest 
-    | RequestUpdated of TimeOffRequest with
+    | RequestUpdated of TimeOffRequest 
     | RequestRefused of TimeOffRequest
     | RequestPendingCancellation of TimeOffRequest
     | RequestCanceled of TimeOffRequest with
@@ -45,7 +42,6 @@ type RequestEvent =
         | RequestPendingCancellation request -> request
         | RequestCanceled request -> request
         | RequestRefused request -> request
-        | RequestDeleted request -> request
         | RequestUpdated request ->request
 
 
@@ -90,6 +86,7 @@ module Logic =
         | RequestCanceled request -> Canceled request
         | RequestRefused request -> Refused request
         | RequestPendingCancellation request -> PendingCancellation request
+        | RequestUpdated request -> PendingValidation request
 
 
     let evolveUserRequests (userRequests: UserRequestsState) (event: RequestEvent) =
@@ -130,16 +127,17 @@ module Logic =
 
 
     let CancelRequest requestState (currentDate: DateTime) userId =
+        
         if userId <> Manager then 
             match requestState with 
             | Validated request -> 
-                if request.End.Date < currentDate.AddDays(1.) then 
+                if request.Start.Date > currentDate.AddDays(1.) then 
                     Ok [RequestPendingCancellation request]
-                else Ok [RequestCanceled request]
+                else Error "Can't delete passed Request"
             | PendingValidation request -> 
-                if request.End.Date < currentDate.AddDays(1.) then 
+                if request.Start.Date > currentDate.AddDays(1.) then 
                     Ok [RequestPendingCancellation request]
-                else Ok [RequestCanceled request]
+                else Error "Can't delete passed Request"
             | _ -> Error "Request cannot be deleted"
         else 
             match requestState with
