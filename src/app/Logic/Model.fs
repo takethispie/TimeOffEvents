@@ -1,7 +1,6 @@
 ﻿namespace TimeOff
 
 open System
-open System
 
 // Then our commands
 type Command =
