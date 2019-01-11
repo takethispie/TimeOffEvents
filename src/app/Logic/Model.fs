@@ -1,6 +1,7 @@
 ﻿namespace TimeOff
 
 open System
+open Logic
 
 // Then our commands
 type Command =
@@ -47,6 +48,7 @@ type RequestEvent =
 // We then define the state of the system,
 // and our 2 main functions `decide` and `evolve`
 module Logic =
+    open Logic
 
     type RequestState =
         | NotCreated
@@ -223,15 +225,8 @@ module Logic =
                 UpdateRequest userRequests  newRequest oldRequestId
               
 
-
     let fetch (userRequests: UserRequestsState) (user: User) (query: Query) =
         match query with
         |GetAllActive userId-> 
-            let result = 
-                userRequests
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, state) -> state)
-                    |> Seq.where (fun state -> state.IsActive && state.Request.UserId = userId)
-                    |> Seq.map (fun state -> state.Request)
-            result
+            TimeOffCalc.summary userRequests DateTime.Now user
 
